@@ -1,13 +1,15 @@
 import pygame
 import random
 import sys
+import tkinter as tk
+from tkinter import filedialog
 
 # Inisialisasi Pygame
 pygame.init()
 
 # Konfigurasi layar
-WIDTH = 1000
-HEIGHT = 700
+WIDTH = 800
+HEIGHT = 600
 TILE_SIZE = 30
 GRID_WIDTH = WIDTH // TILE_SIZE
 GRID_HEIGHT = HEIGHT // TILE_SIZE
@@ -20,7 +22,6 @@ BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
-TRANSPARENT = (0, 0, 0, 0)
 
 # Arah hadap
 DIRECTIONS = {
@@ -52,54 +53,89 @@ ORIENTATIONS = {
     "TURN_BL": 270       # Tikungan kiri bawah
 }
 
-# Muat aset dari file PNG atau gunakan fallback
-try:
-    # Coba muat aset dasar
-    road_straight = pygame.image.load("road_straight.png")
-    road_turn = pygame.image.load("road_turn.png")
-    road_t_junction = pygame.image.load("road_t_junction.png")
-    road_intersection = pygame.image.load("road_intersection.png")
-    house_tile = pygame.image.load("house_tile.png")
-    courier_car = pygame.image.load("courier_car.png")
-    courier_car= pygame.transform.rotate(courier_car,90)
-    
-except FileNotFoundError as e:
-    print(f"Error: {e}. Menggunakan warna dasar sebagai pengganti.")
-    # Buat surface dengan warna dasar sebagai fallback
-    
-    # Buat aset jalan dasar
-    road_straight = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    road_straight.fill((100, 100, 100))  # Abu-abu untuk jalan
-    pygame.draw.line(road_straight, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
-    
-    road_turn = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    road_turn.fill((100, 100, 100))
-    pygame.draw.line(road_turn, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE//2), 2)
-    pygame.draw.line(road_turn, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-    
-    road_t_junction = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    road_t_junction.fill((100, 100, 100))
-    pygame.draw.line(road_t_junction, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-    pygame.draw.line(road_t_junction, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE//2, 0), 2)
-    
-    road_intersection = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    road_intersection.fill((100, 100, 100))
-    pygame.draw.line(road_intersection, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
-    pygame.draw.line(road_intersection, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-    
-    house_tile = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    house_tile.fill((150, 75, 0))    # Coklat untuk rumah
-    
-    courier_car = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    courier_car.fill(BLUE)           # Biru untuk mobil kurir
+assets = {}
+asset_names = [
+    "road_straight",
+    "road_turn",
+    "road_t_junction",
+    "road_intersection",
+    "house_tile",
+    "courier_car"
+]
 
-# Skalakan aset jika perlu
-road_straight = pygame.transform.scale(road_straight, (TILE_SIZE, TILE_SIZE))
-road_turn = pygame.transform.scale(road_turn, (TILE_SIZE, TILE_SIZE))
-road_t_junction = pygame.transform.scale(road_t_junction, (TILE_SIZE, TILE_SIZE))
-road_intersection = pygame.transform.scale(road_intersection, (TILE_SIZE, TILE_SIZE))
-house_tile = pygame.transform.scale(house_tile, (TILE_SIZE, TILE_SIZE))
-courier_car = pygame.transform.scale(courier_car, (TILE_SIZE, TILE_SIZE))
+def load_assets_from_file_explorer():
+    """
+    Opens a file explorer dialog for each asset to select image files.
+    Creates fallback surfaces if files are not selected or invalid.
+    Returns a dictionary containing the loaded or fallback assets.
+    """
+    root = tk.Tk()
+    root.withdraw()
+
+
+
+    print("Please select an image file for each asset (or cancel for fallback).")
+    
+    for asset_name in asset_names:
+        try:
+            print(f"select the {asset_name} asset :")
+            file_path = filedialog.askopenfilename(
+                title=f"Select {asset_name} image",
+                filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp")]
+            )
+            if file_path:
+                try:
+                    assets[asset_name] = pygame.image.load(file_path)
+                    if asset_name == "courier_car":
+                        assets[asset_name] = pygame.transform.rotate(assets[asset_name], 90)
+                    print(f"Loaded {asset_name} from {file_path}")
+                except pygame.error as e:
+                    print(f"Error loading {asset_name} from {file_path}: {e}. Using fallback.")
+                    assets[asset_name] = create_fallback_surface(asset_name)
+            else:
+                print(f"No file selected for {asset_name}. Using fallback.")
+                assets[asset_name] = create_fallback_surface(asset_name)
+        except Exception as e:
+            print(f"Error selecting file for {asset_name}: {e}. Using fallback.")
+            assets[asset_name] = create_fallback_surface(asset_name)
+
+    root.destroy()
+
+    # Scale all assets to TILE_SIZE
+    for key in assets:
+        assets[key] = pygame.transform.scale(assets[key], (TILE_SIZE, TILE_SIZE))
+
+    return assets
+
+
+def create_fallback_surface(asset_name):
+    """
+    Creates a fallback surface for the specified asset name.
+    """
+    surface = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    
+    if asset_name == "road_straight":
+        surface.fill((100, 100, 100))
+        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
+    elif asset_name == "road_turn":
+        surface.fill((100, 100, 100))
+        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE//2), 2)
+        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+    elif asset_name == "road_t_junction":
+        surface.fill((100, 100, 100))
+        pygame.draw.line(surface, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE//2, 0), 2)
+    elif asset_name == "road_intersection":
+        surface.fill((100, 100, 100))
+        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
+        pygame.draw.line(surface, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+    elif asset_name == "house_tile":
+        surface.fill((150, 75, 0))
+    elif asset_name == "courier_car":
+        surface.fill(BLUE)
+    
+    return surface
+
 
 # Kelas Kurir
 class Courier:
@@ -328,15 +364,15 @@ def draw_map():
                 
                 # Pilih aset sesuai tipe jalan
                 if road_type == ROAD_TYPES["STRAIGHT"]:
-                    road_image = road_straight
+                    road_image = assets["road_straight"]
                 elif road_type == ROAD_TYPES["TURN"]:
-                    road_image = road_turn
+                    road_image = assets["road_turn"]
                 elif road_type == ROAD_TYPES["T_JUNCTION"]:
-                    road_image = road_t_junction
+                    road_image = assets["road_t_junction"]
                 elif road_type == ROAD_TYPES["INTERSECTION"]:
-                    road_image = road_intersection
+                    road_image = assets["road_intersection"]
                 else:
-                    road_image = road_intersection  # Default fallback
+                    road_image = assets["road_intersection"]  # Default fallback
                 
                 # Rotasi gambar sesuai orientasi
                 rotated_road = pygame.transform.rotate(road_image, road_orientation)
@@ -346,7 +382,7 @@ def draw_map():
                                                    (y * TILE_SIZE) + TILE_SIZE//2))
                 screen.blit(rotated_road, rect)
             else:  # Blok perumahan
-                screen.blit(house_tile, (x * TILE_SIZE, y * TILE_SIZE))
+                screen.blit(assets["house_tile"], (x * TILE_SIZE, y * TILE_SIZE))
     
     # Gambar lokasi pengambilan (kuning) dan pengiriman (merah)
     pygame.draw.rect(screen, YELLOW, (source_x * TILE_SIZE, source_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
@@ -363,18 +399,18 @@ def draw_map():
     elif courier.direction == "LEFT":
         angle = 90
     
-    rotated_car = pygame.transform.rotate(courier_car, angle)
+    rotated_car = pygame.transform.rotate(assets["courier_car"], angle)
     # Menghitung posisi yang disesuaikan untuk rotasi
     car_rect = rotated_car.get_rect(center=((courier.x * TILE_SIZE) + TILE_SIZE//2, 
                                           (courier.y * TILE_SIZE) + TILE_SIZE//2))
     screen.blit(rotated_car, car_rect)
 
     # Gambar tombol
-    pygame.draw.rect(screen, TRANSPARENT, start_button)
-    pygame.draw.rect(screen, TRANSPARENT, stop_button)
-    pygame.draw.rect(screen, TRANSPARENT, randomize_button)
-    pygame.draw.rect(screen, TRANSPARENT, generate_button)
-    pygame.draw.rect(screen, TRANSPARENT, load_button)
+    pygame.draw.rect(screen, BLACK, start_button)
+    pygame.draw.rect(screen, BLACK, stop_button)
+    pygame.draw.rect(screen, BLACK, randomize_button)
+    pygame.draw.rect(screen, BLACK, generate_button)
+    pygame.draw.rect(screen, BLACK, load_button)
     
     font = pygame.font.Font(None, 20)
     screen.blit(font.render("Start", True, WHITE), (start_button.x + 10, start_button.y + 5))
@@ -398,17 +434,34 @@ courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
 # Tombol
-start_button = pygame.Rect(WIDTH - 150, 10, 120, 40)
-stop_button = pygame.Rect(WIDTH - 150, 60, 120, 40)
-randomize_button = pygame.Rect(WIDTH - 150, 110, 120, 40)
-generate_button = pygame.Rect(WIDTH - 150, 160, 120, 40)
-load_button = pygame.Rect(WIDTH - 150, 210, 120, 40)
+
 
 # Loop utama
 clock = pygame.time.Clock()
 running = True
 while running:
     for event in pygame.event.get():
+        start_button = pygame.Rect(WIDTH - 150, 10, 120, 40)
+        stop_button = pygame.Rect(WIDTH - 150, 60, 120, 40)
+        randomize_button = pygame.Rect(WIDTH - 150, 110, 120, 40)
+        generate_button = pygame.Rect(WIDTH - 150, 160, 120, 40)
+        load_button = pygame.Rect(WIDTH - 150, 210, 120, 40)
+
+        # Gambar tombol
+        pygame.draw.rect(screen, BLACK, start_button)
+        pygame.draw.rect(screen, BLACK, stop_button)
+        pygame.draw.rect(screen, BLACK, randomize_button)
+        pygame.draw.rect(screen, BLACK, generate_button)
+        pygame.draw.rect(screen, BLACK, load_button)
+        
+        font = pygame.font.Font(None, 20)
+        screen.blit(font.render("Start", True, WHITE), (start_button.x + 10, start_button.y + 5))
+        screen.blit(font.render("Stop", True, WHITE), (stop_button.x + 10, stop_button.y + 5))
+        screen.blit(font.render("Randomize", True, WHITE), (randomize_button.x + 10, randomize_button.y + 5))
+        screen.blit(font.render("Generate Map", True, WHITE), (generate_button.x + 10, generate_button.y + 5))
+        screen.blit(font.render("Loading Map", True, WHITE), (load_button.x + 10, load_button.y + 5))
+
+
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -444,6 +497,10 @@ while running:
                     dest_x, dest_y = random_position()
                 courier_x, courier_y = random_position()
                 courier = Courier(courier_x, courier_y)
+            elif load_button.collidepoint(event.pos):
+                load_assets_from_file_explorer()
+                print("successful loading the asset")
+
 
     # Update posisi kurir
     if courier.moving:
@@ -463,7 +520,8 @@ while running:
                     print("Package delivered!")
                     courier.moving = False
 
-    draw_map()
+    if assets and all(name in assets for name in asset_names):
+        draw_map()
     pygame.display.flip()
     clock.tick(10)
 
