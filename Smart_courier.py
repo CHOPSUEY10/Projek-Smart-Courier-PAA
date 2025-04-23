@@ -1,15 +1,15 @@
 import pygame
 import random
 import sys
-import tkinter as tk
-from tkinter import filedialog
+import os
+from pygame.locals import *
 
 # Inisialisasi Pygame
 pygame.init()
 
 # Konfigurasi layar
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 1000
+HEIGHT = 700
 TILE_SIZE = 30
 GRID_WIDTH = WIDTH // TILE_SIZE
 GRID_HEIGHT = HEIGHT // TILE_SIZE
@@ -22,6 +22,8 @@ BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+TRANSPARENT = (0, 0, 0, 0)
 
 # Arah hadap
 DIRECTIONS = {
@@ -53,89 +55,58 @@ ORIENTATIONS = {
     "TURN_BL": 270       # Tikungan kiri bawah
 }
 
-assets = {}
-asset_names = [
-    "road_straight",
-    "road_turn",
-    "road_t_junction",
-    "road_intersection",
-    "house_tile",
-    "courier_car"
-]
+# Konfigurasi untuk loading map
+MAP_FOLDER = "maps"  # Folder untuk menyimpan peta
+SUPPORTED_IMAGE_FORMATS = [".png", ".jpg", ".jpeg", ".bmp"]
 
-def load_assets_from_file_explorer():
-    """
-    Opens a file explorer dialog for each asset to select image files.
-    Creates fallback surfaces if files are not selected or invalid.
-    Returns a dictionary containing the loaded or fallback assets.
-    """
-    root = tk.Tk()
-    root.withdraw()
-
-
-
-    print("Please select an image file for each asset (or cancel for fallback).")
+# Muat aset dari file PNG atau gunakan fallback
+try:
+    # Coba muat aset dasar
+    road_straight = pygame.image.load("road_straight.png")
+    road_turn = pygame.image.load("road_turn.png")
+    road_t_junction = pygame.image.load("road_t_junction.png")
+    road_intersection = pygame.image.load("road_intersection.png")
+    sand = pygame.image.load("sand.png")
+    courier_car = pygame.image.load("courier_car.png")
+    courier_car = pygame.transform.rotate(courier_car, 90)
     
-    for asset_name in asset_names:
-        try:
-            print(f"select the {asset_name} asset :")
-            file_path = filedialog.askopenfilename(
-                title=f"Select {asset_name} image",
-                filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp")]
-            )
-            if file_path:
-                try:
-                    assets[asset_name] = pygame.image.load(file_path)
-                    if asset_name == "courier_car":
-                        assets[asset_name] = pygame.transform.rotate(assets[asset_name], 90)
-                    print(f"Loaded {asset_name} from {file_path}")
-                except pygame.error as e:
-                    print(f"Error loading {asset_name} from {file_path}: {e}. Using fallback.")
-                    assets[asset_name] = create_fallback_surface(asset_name)
-            else:
-                print(f"No file selected for {asset_name}. Using fallback.")
-                assets[asset_name] = create_fallback_surface(asset_name)
-        except Exception as e:
-            print(f"Error selecting file for {asset_name}: {e}. Using fallback.")
-            assets[asset_name] = create_fallback_surface(asset_name)
-
-    root.destroy()
-
-    # Scale all assets to TILE_SIZE
-    for key in assets:
-        assets[key] = pygame.transform.scale(assets[key], (TILE_SIZE, TILE_SIZE))
-
-    return assets
-
-
-def create_fallback_surface(asset_name):
-    """
-    Creates a fallback surface for the specified asset name.
-    """
-    surface = pygame.Surface((TILE_SIZE, TILE_SIZE))
+except FileNotFoundError as e:
+    print(f"Error: {e}. Menggunakan warna dasar sebagai pengganti.")
+    # Buat surface dengan warna dasar sebagai fallback
     
-    if asset_name == "road_straight":
-        surface.fill((100, 100, 100))
-        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
-    elif asset_name == "road_turn":
-        surface.fill((100, 100, 100))
-        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE//2), 2)
-        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-    elif asset_name == "road_t_junction":
-        surface.fill((100, 100, 100))
-        pygame.draw.line(surface, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE//2, 0), 2)
-    elif asset_name == "road_intersection":
-        surface.fill((100, 100, 100))
-        pygame.draw.line(surface, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
-        pygame.draw.line(surface, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
-    elif asset_name == "house_tile":
-        surface.fill((150, 75, 0))
-    elif asset_name == "courier_car":
-        surface.fill(BLUE)
+    # Buat aset jalan dasar
+    road_straight = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    road_straight.fill((100, 100, 100))  # Abu-abu untuk jalan
+    pygame.draw.line(road_straight, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
     
-    return surface
+    road_turn = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    road_turn.fill((100, 100, 100))
+    pygame.draw.line(road_turn, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE//2), 2)
+    pygame.draw.line(road_turn, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+    
+    road_t_junction = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    road_t_junction.fill((100, 100, 100))
+    pygame.draw.line(road_t_junction, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+    pygame.draw.line(road_t_junction, WHITE, (TILE_SIZE//2, TILE_SIZE//2), (TILE_SIZE//2, 0), 2)
+    
+    road_intersection = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    road_intersection.fill((100, 100, 100))
+    pygame.draw.line(road_intersection, WHITE, (TILE_SIZE//2, 0), (TILE_SIZE//2, TILE_SIZE), 2)
+    pygame.draw.line(road_intersection, WHITE, (0, TILE_SIZE//2), (TILE_SIZE, TILE_SIZE//2), 2)
+    
+    sand = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    sand.fill((150, 75, 0))    # Coklat untuk rumah
+    
+    courier_car = pygame.Surface((TILE_SIZE, TILE_SIZE))
+    courier_car.fill(BLUE)           # Biru untuk mobil kurir
 
+# Skalakan aset jika perlu
+road_straight = pygame.transform.scale(road_straight, (TILE_SIZE, TILE_SIZE))
+road_turn = pygame.transform.scale(road_turn, (TILE_SIZE, TILE_SIZE))
+road_t_junction = pygame.transform.scale(road_t_junction, (TILE_SIZE, TILE_SIZE))
+road_intersection = pygame.transform.scale(road_intersection, (TILE_SIZE, TILE_SIZE))
+sand = pygame.transform.scale(sand, (TILE_SIZE, TILE_SIZE))
+courier_car = pygame.transform.scale(courier_car, (TILE_SIZE, TILE_SIZE))
 
 # Kelas Kurir
 class Courier:
@@ -340,6 +311,174 @@ def generate_map():
 
     return grid, road_types, road_orientations
 
+# Fungsi untuk memuat peta dari gambar
+def load_map_from_image(image_path):
+    try:
+        map_image = pygame.image.load(image_path)
+        map_width = map_image.get_width()
+        map_height = map_image.get_height()
+        
+        # Validasi ukuran peta
+        if not (1000 <= map_width <= 1500) or not (700 <= map_height <= 1000):
+            print(f"Ukuran peta tidak valid: {map_width}x{map_height}. Harus 1000-1500x700-1000")
+            return None, None, None
+        
+        # Konversi ke grid
+        global GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT, TILE_SIZE
+        GRID_WIDTH = map_width // TILE_SIZE
+        GRID_HEIGHT = map_height // TILE_SIZE
+        WIDTH = map_width
+        HEIGHT = map_height
+        
+        # Update ukuran layar
+        global screen
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        
+        grid = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        road_types = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        road_orientations = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        
+        # Proses setiap pixel untuk menentukan jalan
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                # Ambil warna pixel di tengah tile
+                pixel_x = x * TILE_SIZE + TILE_SIZE // 2
+                pixel_y = y * TILE_SIZE + TILE_SIZE // 2
+                
+                if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
+                    color = map_image.get_at((pixel_x, pixel_y))
+                    r, g, b, _ = color
+                    
+                    # Cek apakah warna dalam range abu-abu (90-90-90 hingga 150-150-150)
+                    if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
+                        grid[y][x] = 0  # Jalan
+                    else:
+                        grid[y][x] = 1  # Bukan jalan
+        
+        # Tentukan tipe jalan dan orientasi
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                if grid[y][x] == 0:
+                    road_type, road_orientation = determine_road_type_and_orientation(x, y, grid)
+                    road_types[y][x] = road_type
+                    road_orientations[y][x] = road_orientation
+        
+        return grid, road_types, road_orientations
+    
+    except Exception as e:
+        print(f"Gagal memuat peta: {e}")
+        return None, None, None
+
+# Fungsi untuk memindai folder maps
+def scan_map_files():
+    if not os.path.exists(MAP_FOLDER):
+        print(f"Folder '{MAP_FOLDER}' tidak ditemukan. Membuat folder baru...")
+        try:
+            os.makedirs(MAP_FOLDER)
+            print(f"Folder '{MAP_FOLDER}' berhasil dibuat")
+        except Exception as e:
+            print(f"Gagal membuat folder '{MAP_FOLDER}': {e}")
+        return []
+    
+    print(f"Mencari file peta di folder '{MAP_FOLDER}'...")
+    map_files = []
+    for file in os.listdir(MAP_FOLDER):
+        file_path = os.path.join(MAP_FOLDER, file)
+        print(f"Memeriksa file: {file_path}")
+        
+        # Periksa apakah file dan ekstensi valid
+        if os.path.isfile(file_path):
+            ext = os.path.splitext(file)[1].lower()
+            if ext in SUPPORTED_IMAGE_FORMATS:
+                map_files.append(file)
+                print(f"File peta valid ditemukan: {file}")
+            else:
+                print(f"File {file} diabaikan (ekstensi tidak didukung: {ext})")
+        else:
+            print(f"{file_path} diabaikan (bukan file)")
+    
+    print(f"Total {len(map_files)} file peta yang valid ditemukan")
+    return map_files
+
+# Modifikasi fungsi load_map_from_image untuk debugging lebih detail
+def load_map_from_image(image_path):
+    print(f"\nMencoba memuat peta dari: {image_path}")
+    try:
+        # Periksa apakah file ada
+        if not os.path.exists(image_path):
+            print("Error: File tidak ditemukan")
+            return None, None, None
+            
+        map_image = pygame.image.load(image_path)
+        map_width = map_image.get_width()
+        map_height = map_image.get_height()
+        print(f"Ukuran peta: {map_width}x{map_height} piksel")
+        
+        # Validasi ukuran peta
+        if not (1000 <= map_width <= 1500) or not (700 <= map_height <= 1000):
+            print(f"Error: Ukuran peta tidak valid (harus 1000-1500x700-1000)")
+            return None, None, None
+        
+        # Konversi ke grid
+        global GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT, TILE_SIZE
+        GRID_WIDTH = map_width // TILE_SIZE
+        GRID_HEIGHT = map_height // TILE_SIZE
+        WIDTH = map_width
+        HEIGHT = map_height
+        
+        print(f"Grid size: {GRID_WIDTH}x{GRID_HEIGHT} tiles")
+        
+        # Update ukuran layar
+        global screen
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        
+        grid = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        road_types = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        road_orientations = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        
+        print("Memproses peta...")
+        jalan_ditemukan = 0
+        
+        # Proses setiap pixel untuk menentukan jalan
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                # Ambil warna pixel di tengah tile
+                pixel_x = x * TILE_SIZE + TILE_SIZE // 2
+                pixel_y = y * TILE_SIZE + TILE_SIZE // 2
+                
+                if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
+                    color = map_image.get_at((pixel_x, pixel_y))
+                    r, g, b, _ = color
+                    
+                    # Cek apakah warna dalam range abu-abu (90-90-90 hingga 150-150-150)
+                    if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
+                        grid[y][x] = 0  # Jalan
+                        jalan_ditemukan += 1
+                    else:
+                        grid[y][x] = 1  # Bukan jalan
+        
+        print(f"Total tile jalan: {jalan_ditemukan}")
+        
+        if jalan_ditemukan == 0:
+            print("Peringatan: Tidak ada area jalan yang terdeteksi!")
+            print("Pastikan peta memiliki area dengan warna RGB 90-90-90 hingga 150-150-150")
+        
+        # Tentukan tipe jalan dan orientasi
+        print("Menentukan tipe jalan...")
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                if grid[y][x] == 0:
+                    road_type, road_orientation = determine_road_type_and_orientation(x, y, grid)
+                    road_types[y][x] = road_type
+                    road_orientations[y][x] = road_orientation
+        
+        print("Peta berhasil dimuat!")
+        return grid, road_types, road_orientations
+    
+    except Exception as e:
+        print(f"Error saat memuat peta: {str(e)}")
+        return None, None, None
+    
 # Posisi acak di jalan
 def random_position():
     positions = []
@@ -364,25 +503,25 @@ def draw_map():
                 
                 # Pilih aset sesuai tipe jalan
                 if road_type == ROAD_TYPES["STRAIGHT"]:
-                    road_image = assets["road_straight"]
+                    road_image = road_straight
                 elif road_type == ROAD_TYPES["TURN"]:
-                    road_image = assets["road_turn"]
+                    road_image = road_turn
                 elif road_type == ROAD_TYPES["T_JUNCTION"]:
-                    road_image = assets["road_t_junction"]
+                    road_image = road_t_junction
                 elif road_type == ROAD_TYPES["INTERSECTION"]:
-                    road_image = assets["road_intersection"]
+                    road_image = road_intersection
                 else:
-                    road_image = assets["road_intersection"]  # Default fallback
+                    road_image = road_intersection  # Default fallback
                 
                 # Rotasi gambar sesuai orientasi
                 rotated_road = pygame.transform.rotate(road_image, road_orientation)
                 
                 # Menyesuaikan posisi setelah rotasi agar tetap berada di tengah tile
                 rect = rotated_road.get_rect(center=((x * TILE_SIZE) + TILE_SIZE//2, 
-                                                   (y * TILE_SIZE) + TILE_SIZE//2))
+                                               (y * TILE_SIZE) + TILE_SIZE//2))
                 screen.blit(rotated_road, rect)
             else:  # Blok perumahan
-                screen.blit(assets["house_tile"], (x * TILE_SIZE, y * TILE_SIZE))
+                screen.blit(sand, (x * TILE_SIZE, y * TILE_SIZE))
     
     # Gambar lokasi pengambilan (kuning) dan pengiriman (merah)
     pygame.draw.rect(screen, YELLOW, (source_x * TILE_SIZE, source_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
@@ -399,30 +538,36 @@ def draw_map():
     elif courier.direction == "LEFT":
         angle = 90
     
-    rotated_car = pygame.transform.rotate(assets["courier_car"], angle)
+    rotated_car = pygame.transform.rotate(courier_car, angle)
     # Menghitung posisi yang disesuaikan untuk rotasi
     car_rect = rotated_car.get_rect(center=((courier.x * TILE_SIZE) + TILE_SIZE//2, 
-                                          (courier.y * TILE_SIZE) + TILE_SIZE//2))
+                                      (courier.y * TILE_SIZE) + TILE_SIZE//2))
     screen.blit(rotated_car, car_rect)
 
     # Gambar tombol
-    pygame.draw.rect(screen, BLACK, start_button)
-    pygame.draw.rect(screen, BLACK, stop_button)
-    pygame.draw.rect(screen, BLACK, randomize_button)
-    pygame.draw.rect(screen, BLACK, generate_button)
-    pygame.draw.rect(screen, BLACK, load_button)
+    pygame.draw.rect(screen, GREEN, start_button)
+    pygame.draw.rect(screen, GREEN, stop_button)
+    pygame.draw.rect(screen, GREEN, randomize_button)
+    pygame.draw.rect(screen, GREEN, generate_button)
+    pygame.draw.rect(screen, GREEN, load_button)
     
-    font = pygame.font.Font(None, 20)
-    screen.blit(font.render("Start", True, WHITE), (start_button.x + 10, start_button.y + 5))
-    screen.blit(font.render("Stop", True, WHITE), (stop_button.x + 10, stop_button.y + 5))
-    screen.blit(font.render("Randomize", True, WHITE), (randomize_button.x + 10, randomize_button.y + 5))
-    screen.blit(font.render("Generate Map", True, WHITE), (generate_button.x + 10, generate_button.y + 5))
-    screen.blit(font.render("Loading Map", True, WHITE), (load_button.x + 10, load_button.y + 5))
+    font = pygame.font.Font(None, 24)
+    screen.blit(font.render("Start", True, BLACK), (start_button.x + 10, start_button.y + 5))
+    screen.blit(font.render("Stop", True, BLACK), (stop_button.x + 10, stop_button.y + 5))
+    screen.blit(font.render("Randomize", True, BLACK), (randomize_button.x + 10, randomize_button.y + 5))
+    screen.blit(font.render("Generate Map", True, BLACK), (generate_button.x + 10, generate_button.y + 5))
+    screen.blit(font.render("Load Map", True, BLACK), (load_button.x + 10, load_button.y + 5))
 
     # Status paket
     status_text = "Carrying Package" if courier.has_package else "No Package"
     text = font.render(status_text, True, BLACK)
     screen.blit(text, (10, HEIGHT - 30))
+    
+    # Info peta saat ini
+    if current_map_index >= 0 and map_files:
+        map_text = f"Map: {map_files[current_map_index]}"
+        text = font.render(map_text, True, BLACK)
+        screen.blit(text, (10, HEIGHT - 60))
 
 # Inisialisasi peta
 grid, road_types, road_orientations = generate_map()
@@ -434,34 +579,24 @@ courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
 # Tombol
+button_width = 120
+button_height = 40
+button_margin = 10
+start_button = pygame.Rect(WIDTH - button_width - button_margin, 10, button_width, button_height)
+stop_button = pygame.Rect(WIDTH - button_width - button_margin, 60, button_width, button_height)
+randomize_button = pygame.Rect(WIDTH - button_width - button_margin, 110, button_width, button_height)
+generate_button = pygame.Rect(WIDTH - button_width - button_margin, 160, button_width, button_height)
+load_button = pygame.Rect(WIDTH - button_width - button_margin, 210, button_width, button_height)
 
+# Scan file peta yang tersedia
+map_files = scan_map_files()
+current_map_index = 0 if map_files else -1
 
 # Loop utama
 clock = pygame.time.Clock()
 running = True
 while running:
     for event in pygame.event.get():
-        start_button = pygame.Rect(WIDTH - 150, 10, 120, 40)
-        stop_button = pygame.Rect(WIDTH - 150, 60, 120, 40)
-        randomize_button = pygame.Rect(WIDTH - 150, 110, 120, 40)
-        generate_button = pygame.Rect(WIDTH - 150, 160, 120, 40)
-        load_button = pygame.Rect(WIDTH - 150, 210, 120, 40)
-
-        # Gambar tombol
-        pygame.draw.rect(screen, BLACK, start_button)
-        pygame.draw.rect(screen, BLACK, stop_button)
-        pygame.draw.rect(screen, BLACK, randomize_button)
-        pygame.draw.rect(screen, BLACK, generate_button)
-        pygame.draw.rect(screen, BLACK, load_button)
-        
-        font = pygame.font.Font(None, 20)
-        screen.blit(font.render("Start", True, WHITE), (start_button.x + 10, start_button.y + 5))
-        screen.blit(font.render("Stop", True, WHITE), (stop_button.x + 10, stop_button.y + 5))
-        screen.blit(font.render("Randomize", True, WHITE), (randomize_button.x + 10, randomize_button.y + 5))
-        screen.blit(font.render("Generate Map", True, WHITE), (generate_button.x + 10, generate_button.y + 5))
-        screen.blit(font.render("Loading Map", True, WHITE), (load_button.x + 10, load_button.y + 5))
-
-
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -498,9 +633,30 @@ while running:
                 courier_x, courier_y = random_position()
                 courier = Courier(courier_x, courier_y)
             elif load_button.collidepoint(event.pos):
-                load_assets_from_file_explorer()
-                print("successful loading the asset")
-
+                if map_files:
+                    # Load peta berikutnya secara bergantian
+                    current_map_index = (current_map_index + 1) % len(map_files)
+                    map_path = os.path.join(MAP_FOLDER, map_files[current_map_index])
+                    new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
+                    
+                    if new_grid and new_road_types and new_road_orientations:
+                        # Update variabel global
+                        grid = new_grid
+                        road_types = new_road_types
+                        road_orientations = new_road_orientations
+                        
+                        # Reset posisi kurir, sumber, dan tujuan
+                        source_x, source_y = random_position()
+                        dest_x, dest_y = random_position()
+                        while (dest_x, dest_y) == (source_x, source_y):
+                            dest_x, dest_y = random_position()
+                        courier_x, courier_y = random_position()
+                        courier = Courier(courier_x, courier_y)
+                    else:
+                        print("Gagal memuat peta, menggunakan peta default")
+                        grid, road_types, road_orientations = generate_map()
+                else:
+                    print("Tidak ada file peta di folder 'maps'")
 
     # Update posisi kurir
     if courier.moving:
@@ -520,8 +676,7 @@ while running:
                     print("Package delivered!")
                     courier.moving = False
 
-    if assets and all(name in assets for name in asset_names):
-        draw_map()
+    draw_map()
     pygame.display.flip()
     clock.tick(10)
 
