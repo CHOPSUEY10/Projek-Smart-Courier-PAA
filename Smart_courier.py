@@ -279,7 +279,7 @@ def generate_map():
                 grid[y][x] = 0  # 0 = jalan
 
     # Tambahkan beberapa jalan terputus untuk variasi
-    for _ in range(random.randint(3, 6)):
+    """for _ in range(random.randint(3, 6)):
         if random.choice([True, False]):  # Jalan horizontal
             y = random.randint(0, GRID_HEIGHT - 1)
             start_x = random.randint(0, GRID_WIDTH - road_spacing_x)
@@ -293,7 +293,7 @@ def generate_map():
             end_y = start_y + random.randint(road_spacing_y//2, road_spacing_y)
             end_y = min(end_y, GRID_HEIGHT)
             for y in range(start_y, end_y):
-                grid[y][x] = 0
+                grid[y][x] = 0 """
 
     # Tentukan tipe jalan dan orientasi untuk setiap tile jalan
     road_types = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
@@ -368,7 +368,69 @@ def load_map_from_image(image_path):
     except Exception as e:
         print(f"Gagal memuat peta: {e}")
         return None, None, None
-
+"""
+def load_map_from_image(image_path):
+    try:
+        map_image = pygame.image.load(image_path)
+        map_width = map_image.get_width()
+        map_height = map_image.get_height()
+        
+        # Validasi ukuran peta
+        if not (1000 <= map_width <= 1500) or not (700 <= map_height <= 1000):
+            print(f"Ukuran peta tidak valid: {map_width}x{map_height}. Harus 1000-1500x700-1000")
+            return None, None, None
+        
+        # Konversi ke grid
+        global GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT, TILE_SIZE
+        GRID_WIDTH = map_width // TILE_SIZE
+        GRID_HEIGHT = map_height // TILE_SIZE
+        WIDTH = map_width
+        HEIGHT = map_height
+        
+        # Update ukuran layar
+        global screen
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        
+        # Buat grid sederhana - hanya perlu grid utama
+        grid = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        
+        # Definisi warna untuk rendering
+        ROAD_COLOR = (128, 128, 128)      # Abu-abu untuk jalan
+        BACKGROUND_COLOR = (255, 255, 180)  # Kuning muda untuk non-jalan
+        
+        # Clear screen dengan background
+        screen.fill(BACKGROUND_COLOR)
+        
+        # Proses setiap pixel untuk menentukan jalan dan langsung render
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                # Ambil warna pixel di tengah tile
+                pixel_x = x * TILE_SIZE + TILE_SIZE // 2
+                pixel_y = y * TILE_SIZE + TILE_SIZE // 2
+                
+                if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
+                    color = map_image.get_at((pixel_x, pixel_y))
+                    r, g, b, _ = color
+                    
+                    # Cek apakah warna dalam range abu-abu (90-90-90 hingga 150-150-150)
+                    if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
+                        grid[y][x] = 0  # Jalan
+                        # Langsung render kotak abu-abu untuk jalan
+                        rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                        pygame.draw.rect(screen, ROAD_COLOR, rect)
+                    else:
+                        grid[y][x] = 1  # Bukan jalan
+        
+        # Update display
+        pygame.display.flip()
+        
+        # Tidak perlu lagi road_types dan road_orientations karena render sederhana
+        return grid, None, None
+    
+    except Exception as e:
+        print(f"Gagal memuat peta: {e}")
+        return None, None, None
+"""
 # Fungsi untuk memindai folder maps
 def scan_map_files():
     if not os.path.exists(MAP_FOLDER):
@@ -400,96 +462,18 @@ def scan_map_files():
     print(f"Total {len(map_files)} file peta yang valid ditemukan")
     return map_files
 
-# Modifikasi fungsi load_map_from_image untuk debugging lebih detail
-def load_map_from_image(image_path):
-    print(f"\nMencoba memuat peta dari: {image_path}")
-    try:
-        # Periksa apakah file ada
-        if not os.path.exists(image_path):
-            print("Error: File tidak ditemukan")
-            return None, None, None
-            
-        map_image = pygame.image.load(image_path)
-        map_width = map_image.get_width()
-        map_height = map_image.get_height()
-        print(f"Ukuran peta: {map_width}x{map_height} piksel")
-        
-        # Validasi ukuran peta
-        if not (1000 <= map_width <= 1500) or not (700 <= map_height <= 1000):
-            print(f"Error: Ukuran peta tidak valid (harus 1000-1500x700-1000)")
-            return None, None, None
-        
-        # Konversi ke grid
-        global GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT, TILE_SIZE
-        GRID_WIDTH = map_width // TILE_SIZE
-        GRID_HEIGHT = map_height // TILE_SIZE
-        WIDTH = map_width
-        HEIGHT = map_height
-        
-        print(f"Grid size: {GRID_WIDTH}x{GRID_HEIGHT} tiles")
-        
-        # Update ukuran layar
-        global screen
-        screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        
-        grid = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        road_types = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        road_orientations = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        
-        print("Memproses peta...")
-        jalan_ditemukan = 0
-        
-        # Proses setiap pixel untuk menentukan jalan
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                # Ambil warna pixel di tengah tile
-                pixel_x = x * TILE_SIZE + TILE_SIZE // 2
-                pixel_y = y * TILE_SIZE + TILE_SIZE // 2
-                
-                if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
-                    color = map_image.get_at((pixel_x, pixel_y))
-                    r, g, b, _ = color
-                    
-                    # Cek apakah warna dalam range abu-abu (90-90-90 hingga 150-150-150)
-                    if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
-                        grid[y][x] = 0  # Jalan
-                        jalan_ditemukan += 1
-                    else:
-                        grid[y][x] = 1  # Bukan jalan
-        
-        print(f"Total tile jalan: {jalan_ditemukan}")
-        
-        if jalan_ditemukan == 0:
-            print("Peringatan: Tidak ada area jalan yang terdeteksi!")
-            print("Pastikan peta memiliki area dengan warna RGB 90-90-90 hingga 150-150-150")
-        
-        # Tentukan tipe jalan dan orientasi
-        print("Menentukan tipe jalan...")
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                if grid[y][x] == 0:
-                    road_type, road_orientation = determine_road_type_and_orientation(x, y, grid)
-                    road_types[y][x] = road_type
-                    road_orientations[y][x] = road_orientation
-        
-        print("Peta berhasil dimuat!")
-        return grid, road_types, road_orientations
-    
-    except Exception as e:
-        print(f"Error saat memuat peta: {str(e)}")
-        return None, None, None
-    
 # Posisi acak di jalan
 def random_position():
     positions = []
     for y in range(GRID_HEIGHT):
         for x in range(GRID_WIDTH):
-            if grid[y][x] != 1:  # Bukan rumah (adalah jalan)
+            if grid[y][x] != 1 :  # Bukan rumah (adalah jalan)
                 positions.append((x, y))
     
     if not positions:
         # Fallback jika tidak ada posisi jalan yang valid
         return (0, 0)
+    
     return random.choice(positions)
 
 # Gambar peta
@@ -524,6 +508,8 @@ def draw_map():
                 screen.blit(sand, (x * TILE_SIZE, y * TILE_SIZE))
     
     # Gambar lokasi pengambilan (kuning) dan pengiriman (merah)
+
+    pygame.draw.rect(screen, BLUE, (courier_x * TILE_SIZE, courier_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
     pygame.draw.rect(screen, YELLOW, (source_x * TILE_SIZE, source_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
     pygame.draw.rect(screen, RED, (dest_x * TILE_SIZE, dest_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
     
@@ -574,7 +560,7 @@ grid, road_types, road_orientations = generate_map()
 source_x, source_y = random_position()
 dest_x, dest_y = random_position()
 while (dest_x, dest_y) == (source_x, source_y):
-    dest_x, dest_y = random_position()
+    dest_x, dest_y = random_position() + 30
 courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
@@ -678,7 +664,7 @@ while running:
 
     draw_map()
     pygame.display.flip()
-    clock.tick(10)
+    clock.tick(5)
 
 pygame.quit()
 sys.exit()
