@@ -435,36 +435,6 @@ def load_map_from_image(image_path):
         print(f"Gagal memuat peta: {e}")
         return None, None, None
 """
-# Fungsi untuk memindai folder maps
-def scan_map_files():
-    if not os.path.exists(MAP_FOLDER):
-        print(f"Folder '{MAP_FOLDER}' tidak ditemukan. Membuat folder baru...")
-        try:
-            os.makedirs(MAP_FOLDER)
-            print(f"Folder '{MAP_FOLDER}' berhasil dibuat")
-        except Exception as e:
-            print(f"Gagal membuat folder '{MAP_FOLDER}': {e}")
-        return []
-    
-    print(f"Mencari file peta di folder '{MAP_FOLDER}'...")
-    map_files = []
-    for file in os.listdir(MAP_FOLDER):
-        file_path = os.path.join(MAP_FOLDER, file)
-        print(f"Memeriksa file: {file_path}")
-        
-        # Periksa apakah file dan ekstensi valid
-        if os.path.isfile(file_path):
-            ext = os.path.splitext(file)[1].lower()
-            if ext in SUPPORTED_IMAGE_FORMATS:
-                map_files.append(file)
-                print(f"File peta valid ditemukan: {file}")
-            else:
-                print(f"File {file} diabaikan (ekstensi tidak didukung: {ext})")
-        else:
-            print(f"{file_path} diabaikan (bukan file)")
-    
-    print(f"Total {len(map_files)} file peta yang valid ditemukan")
-    return map_files
 
 # Posisi acak di jalan
 def random_position():
@@ -554,17 +524,14 @@ def draw_map():
     screen.blit(text, (10, HEIGHT - 30))
     
     # Info peta saat ini
-    if current_map_index >= 0 and map_files:
-        map_text = f"Map: {map_files[current_map_index]}"
-        text = font.render(map_text, True, BLACK)
-        screen.blit(text, (10, HEIGHT - 60))
+
 
 # Inisialisasi peta
 grid, road_types, road_orientations = generate_map()
 source_x, source_y = random_position()
 dest_x, dest_y = random_position()
 while (dest_x, dest_y) == (source_x, source_y):
-    dest_x, dest_y = random_position() + 30
+    dest_x, dest_y = random_position() 
 courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
@@ -579,8 +546,8 @@ generate_button = pygame.Rect(WIDTH - button_width - button_margin, 160, button_
 load_button = pygame.Rect(WIDTH - button_width - button_margin, 210, button_width, button_height)
 
 # Scan file peta yang tersedia
-map_files = scan_map_files()
-current_map_index = 0 if map_files else -1
+#map_files = scan_map_files()
+#current_map_index = 0 if map_files else -1
 
 # Loop utama
 clock = pygame.time.Clock()
@@ -623,34 +590,32 @@ while running:
                 courier_x, courier_y = random_position()
                 courier = Courier(courier_x, courier_y)
             elif load_button.collidepoint(event.pos):
-                if map_files:
+                
                     # Load peta berikutnya secara bergantian
-                    current_map_index = (current_map_index + 1) % len(map_files)
-                    map_path = filedialog.askopenfile(
-                        title="pilih file peta",
-                        filetypes=[("Images Files", "*.png;*.jpg;*.bmp")]
-                    )
-                    new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
+         
+                map_path = filedialog.askopenfile(
+                    title="pilih file peta",
+                    filetypes=[("Images Files", "*.png;*.jpg;*.bmp")]
+                )
+                new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
                     
-                    if new_grid and new_road_types and new_road_orientations:
-                        # Update variabel global
-                        grid = new_grid
-                        road_types = new_road_types
-                        road_orientations = new_road_orientations
+                if new_grid and new_road_types and new_road_orientations:
+                    # Update variabel global
+                    grid = new_grid
+                    road_types = new_road_types
+                    road_orientations = new_road_orientations
                         
                         # Reset posisi kurir, sumber, dan tujuan
-                        source_x, source_y = random_position()
+                    source_x, source_y = random_position()
+                    dest_x, dest_y = random_position()
+                    while (dest_x, dest_y) == (source_x, source_y):
                         dest_x, dest_y = random_position()
-                        while (dest_x, dest_y) == (source_x, source_y):
-                            dest_x, dest_y = random_position()
-                        courier_x, courier_y = random_position()
-                        courier = Courier(courier_x, courier_y)
-                    else:
-                        print("Gagal memuat peta, menggunakan peta default")
-                        grid, road_types, road_orientations = generate_map()
+                    courier_x, courier_y = random_position()
+                    courier = Courier(courier_x, courier_y)
                 else:
-                    print("Tidak ada file peta di folder 'maps'")
-
+                    print("Gagal memuat peta, menggunakan peta default")
+                    grid, road_types, road_orientations = generate_map()
+                
     # Update posisi kurir
     if courier.moving:
         courier.follow_path()
