@@ -3,9 +3,13 @@ import random
 import sys
 import os
 from pygame.locals import *
+import tkinter as tk
+from tkinter import filedialog
 
 # Inisialisasi Pygame
 pygame.init()
+root = tk.Tk()
+root.withdraw()
 
 # Konfigurasi layar
 WIDTH = 1000
@@ -622,7 +626,10 @@ while running:
                 if map_files:
                     # Load peta berikutnya secara bergantian
                     current_map_index = (current_map_index + 1) % len(map_files)
-                    map_path = os.path.join(MAP_FOLDER, map_files[current_map_index])
+                    map_path = filedialog.askopenfile(
+                        title="pilih file peta",
+                        filetypes=[("Images Files", "*.png;*.jpg;*.bmp")]
+                    )
                     new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
                     
                     if new_grid and new_road_types and new_road_orientations:
