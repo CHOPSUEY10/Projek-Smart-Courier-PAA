@@ -564,7 +564,7 @@ grid, road_types, road_orientations = generate_map()
 source_x, source_y = random_position()
 dest_x, dest_y = random_position()
 while (dest_x, dest_y) == (source_x, source_y):
-    dest_x, dest_y = random_position() + 30
+    dest_x, dest_y = random_position()
 courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
