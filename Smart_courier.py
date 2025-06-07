@@ -5,6 +5,9 @@ import os
 from pygame.locals import *
 import tkinter as tk
 from tkinter import filedialog
+import logging
+logging.basicConfig(level=logging.INFO)
+
 haiii
 # Inisialisasi Pygame
 pygame.init()
@@ -75,7 +78,8 @@ try:
     courier_car = pygame.transform.rotate(courier_car, 90)
     
 except FileNotFoundError as e:
-    print(f"Error: {e}. Menggunakan warna dasar sebagai pengganti.")
+    logging.warning(f"Aset tidak ditemukan: {e}. Menggunakan fallback warna dasar.")
+    
     # Buat surface dengan warna dasar sebagai fallback
     
     # Buat aset jalan dasar
@@ -568,7 +572,7 @@ while running:
                 else:
                     courier.path = a_star((courier.x, courier.y), (dest_x, dest_y))
                     if not courier.path:
-                        print("Tidak dapat menemukan jalur ke tujuan!")
+                        logging.warning("Tidak dapat menemukan jalur ke tujuan!")
                     else:
                         courier.moving = True
             elif stop_button.collidepoint(event.pos):
@@ -623,7 +627,7 @@ while running:
         if not courier.path:
             if not courier.has_package and courier.x == source_x and courier.y == source_y:
                 if courier.try_pickup(source_x, source_y):
-                    print("Package picked up!")
+                    logging.info("Package picked up!")
                     # Setelah mengambil paket, tentukan rute ke tujuan
                     courier.path = a_star((courier.x, courier.y), (dest_x, dest_y))
                     if not courier.path:
@@ -631,7 +635,7 @@ while running:
                         courier.moving = False
             elif courier.has_package and courier.x == dest_x and courier.y == dest_y:
                 if courier.try_deliver(dest_x, dest_y):
-                    print("Package delivered!")
+                    logging.info("Package delivered!")
                     courier.moving = False
 
     draw_map()
