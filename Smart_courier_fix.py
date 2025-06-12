@@ -5,10 +5,8 @@ import os
 from pygame.locals import *
 import tkinter as tk
 from tkinter import filedialog
-import logging
-logging.basicConfig(level=logging.INFO)
+import math
 
-haiii
 # Inisialisasi Pygame
 pygame.init()
 root = tk.Tk()
@@ -69,17 +67,16 @@ SUPPORTED_IMAGE_FORMATS = [".png", ".jpg", ".jpeg", ".bmp"]
 # Muat aset dari file PNG atau gunakan fallback
 try:
     # Coba muat aset dasar
-    road_straight = pygame.image.load("road_straight.png")
-    road_turn = pygame.image.load("road_turn.png")
-    road_t_junction = pygame.image.load("road_t_junction.png")
+    road_straight = pygame.image.load("road_intersection.png")
+    road_turn = pygame.image.load("road_intersection.png")
+    road_t_junction = pygame.image.load("road_intersection.png")
     road_intersection = pygame.image.load("road_intersection.png")
     sand = pygame.image.load("sand.png")
     courier_car = pygame.image.load("courier_car.png")
     courier_car = pygame.transform.rotate(courier_car, 90)
     
 except FileNotFoundError as e:
-    logging.warning(f"Aset tidak ditemukan: {e}. Menggunakan fallback warna dasar.")
-    
+    print(f"Error: {e}. Menggunakan warna dasar sebagai pengganti.")
     # Buat surface dengan warna dasar sebagai fallback
     
     # Buat aset jalan dasar
@@ -122,19 +119,55 @@ class Courier:
         self.x = x
         self.y = y
         self.direction = "RIGHT"
+        self.target_direction = "RIGHT"
+        self.rotation_angle = 270  # 0=up, 90=left, 180=down, 270=right
         self.has_package = False
         self.moving = False
         self.path = []
+        self.is_rotating = False
+        self.rotation_speed = 75  # Kecepatan rotasi lebih cepat
 
     def move(self, dx, dy):
-        new_x = self.x + dx
-        new_y = self.y + dy
-        if 0 <= new_x < GRID_WIDTH and 0 <= new_y < GRID_HEIGHT and grid[new_y][new_x] != 1:  # 1 = rumah/non-jalan
-            self.x = new_x
-            self.y = new_y
+        # Hanya bergerak jika sudah menghadap arah yang benar
+        if not self.is_rotating:
+            new_x = self.x + dx
+            new_y = self.y + dy
+            if 0 <= new_x < GRID_WIDTH and 0 <= new_y < GRID_HEIGHT and grid[new_y][new_x] != 1:
+                self.x = new_x
+                self.y = new_y
 
     def turn(self, new_direction):
-        self.direction = new_direction
+        if self.direction != new_direction:
+            self.target_direction = new_direction
+            self.is_rotating = True
+
+    def update_rotation(self):
+        if not self.is_rotating:
+            return
+            
+        target_angle = 0
+        if self.target_direction == "UP":
+            target_angle = 0
+        elif self.target_direction == "LEFT":
+            target_angle = 90
+        elif self.target_direction == "DOWN":
+            target_angle = 180
+        elif self.target_direction == "RIGHT":
+            target_angle = 270
+
+        # Hitung perbedaan sudut terpendek
+        angle_diff = (target_angle - self.rotation_angle + 180) % 360 - 180
+        
+        if abs(angle_diff) <= self.rotation_speed:
+            self.rotation_angle = target_angle
+            self.direction = self.target_direction
+            self.is_rotating = False
+        else:
+            # Rotasi dengan arah yang paling pendek
+            self.rotation_angle += self.rotation_speed if angle_diff > 0 else -self.rotation_speed
+        
+        # Normalisasi sudut
+        self.rotation_angle %= 360
 
     def try_pickup(self, source_x, source_y):
         if self.x == source_x and self.y == source_y and not self.has_package:
@@ -150,20 +183,34 @@ class Courier:
 
     def follow_path(self):
         if self.path and self.moving:
+            # Jika sedang berputar, selesaikan putaran dulu
+            if self.is_rotating:
+                self.update_rotation()
+                return
+                
             next_pos = self.path[0]
             dx, dy = next_pos[0] - self.x, next_pos[1] - self.y
+            
+            # Tentukan arah yang diperlukan
+            required_direction = None
             if dx > 0:
-                self.turn("RIGHT")
+                required_direction = "RIGHT"
             elif dx < 0:
-                self.turn("LEFT")
+                required_direction = "LEFT"
             elif dy > 0:
-                self.turn("DOWN")
+                required_direction = "DOWN"
             elif dy < 0:
-                self.turn("UP")
-            self.move(dx, dy)
-            if (self.x, self.y) == next_pos:
-                self.path.pop(0)
-
+                required_direction = "UP"
+            
+            # Jika perlu berubah arah, putar dulu
+            if required_direction and self.direction != required_direction:
+                self.turn(required_direction)
+            else:
+                # Jika sudah menghadap arah yang benar, bergerak
+                self.move(dx, dy)
+                if (self.x, self.y) == next_pos:
+                    self.path.pop(0)
+                    
 # Pathfinding (A* algorithm)
 def a_star(start, goal):
     def heuristic(a, b):
@@ -331,8 +378,9 @@ def load_map_from_image(image_path):
             print(f"Ukuran peta tidak valid: {map_width}x{map_height}. Harus 1000-1500x700-1000")
             return None, None, None
         
-        # Konversi ke grid
+        # Konversi ke grid dengan TILE_SIZE kecil (misal: 10px)
         global GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT, TILE_SIZE
+        TILE_SIZE = 10
         GRID_WIDTH = map_width // TILE_SIZE
         GRID_HEIGHT = map_height // TILE_SIZE
         WIDTH = map_width
@@ -346,22 +394,27 @@ def load_map_from_image(image_path):
         road_types = [[1 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         road_orientations = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         
-        # Proses setiap pixel untuk menentukan jalan
+        # Proses deteksi garis kecil dengan memeriksa banyak pixel per tile
         for y in range(GRID_HEIGHT):
             for x in range(GRID_WIDTH):
-                # Ambil warna pixel di tengah tile
-                pixel_x = x * TILE_SIZE + TILE_SIZE // 2
-                pixel_y = y * TILE_SIZE + TILE_SIZE // 2
+                road_pixels = 0
+                # Periksa semua pixel dalam tile saat ini (10x10 pixel)
+                for py in range(TILE_SIZE):
+                    for px in range(TILE_SIZE):
+                        pixel_x = x * TILE_SIZE + px
+                        pixel_y = y * TILE_SIZE + py
+                        if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
+                            color = map_image.get_at((pixel_x, pixel_y))
+                            r, g, b, _ = color
+                            # Jika warna abu-abu (90-150), anggap sebagai jalan
+                            if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
+                                road_pixels += 1
                 
-                if 0 <= pixel_x < map_width and 0 <= pixel_y < map_height:
-                    color = map_image.get_at((pixel_x, pixel_y))
-                    r, g, b, _ = color
-                    
-                    # Cek apakah warna dalam range abu-abu (90-90-90 hingga 150-150-150)
-                    if 90 <= r <= 150 and 90 <= g <= 150 and 90 <= b <= 150:
-                        grid[y][x] = 0  # Jalan
-                    else:
-                        grid[y][x] = 1  # Bukan jalan
+                # Jika >25% pixel dalam tile adalah jalan, set sebagai jalan (0)
+                if road_pixels > (TILE_SIZE ** 2 * 0.25):
+                    grid[y][x] = 0
+                else:
+                    grid[y][x] = 1
         
         # Tentukan tipe jalan dan orientasi
         for y in range(GRID_HEIGHT):
@@ -439,6 +492,36 @@ def load_map_from_image(image_path):
         print(f"Gagal memuat peta: {e}")
         return None, None, None
 """
+# Fungsi untuk memindai folder maps
+def scan_map_files():
+    if not os.path.exists(MAP_FOLDER):
+        print(f"Folder '{MAP_FOLDER}' tidak ditemukan. Membuat folder baru...")
+        try:
+            os.makedirs(MAP_FOLDER)
+            print(f"Folder '{MAP_FOLDER}' berhasil dibuat")
+        except Exception as e:
+            print(f"Gagal membuat folder '{MAP_FOLDER}': {e}")
+        return []
+    
+    print(f"Mencari file peta di folder '{MAP_FOLDER}'...")
+    map_files = []
+    for file in os.listdir(MAP_FOLDER):
+        file_path = os.path.join(MAP_FOLDER, file)
+        print(f"Memeriksa file: {file_path}")
+        
+        # Periksa apakah file dan ekstensi valid
+        if os.path.isfile(file_path):
+            ext = os.path.splitext(file)[1].lower()
+            if ext in SUPPORTED_IMAGE_FORMATS:
+                map_files.append(file)
+                print(f"File peta valid ditemukan: {file}")
+            else:
+                print(f"File {file} diabaikan (ekstensi tidak didukung: {ext})")
+        else:
+            print(f"{file_path} diabaikan (bukan file)")
+    
+    print(f"Total {len(map_files)} file peta yang valid ditemukan")
+    return map_files
 
 # Posisi acak di jalan
 def random_position():
@@ -486,23 +569,12 @@ def draw_map():
                 screen.blit(sand, (x * TILE_SIZE, y * TILE_SIZE))
     
     # Gambar lokasi pengambilan (kuning) dan pengiriman (merah)
-
-    pygame.draw.rect(screen, BLUE, (courier_x * TILE_SIZE, courier_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
-    pygame.draw.rect(screen, YELLOW, (source_x * TILE_SIZE, source_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
-    pygame.draw.rect(screen, RED, (dest_x * TILE_SIZE, dest_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)  # Garis tepi saja
+    pygame.draw.rect(screen, BLUE, (courier_x * TILE_SIZE, courier_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)
+    pygame.draw.rect(screen, YELLOW, (source_x * TILE_SIZE, source_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)
+    pygame.draw.rect(screen, RED, (dest_x * TILE_SIZE, dest_y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)
     
-    # Rotasi mobil kurir berdasarkan arahnya
-    angle = 0
-    if courier.direction == "UP":
-        angle = 0
-    elif courier.direction == "RIGHT":
-        angle = 270
-    elif courier.direction == "DOWN":
-        angle = 180
-    elif courier.direction == "LEFT":
-        angle = 90
-    
-    rotated_car = pygame.transform.rotate(courier_car, angle)
+    # Rotasi mobil kurir dengan animasi halus
+    rotated_car = pygame.transform.rotate(courier_car, courier.rotation_angle)
     # Menghitung posisi yang disesuaikan untuk rotasi
     car_rect = rotated_car.get_rect(center=((courier.x * TILE_SIZE) + TILE_SIZE//2, 
                                       (courier.y * TILE_SIZE) + TILE_SIZE//2))
@@ -525,17 +597,23 @@ def draw_map():
     # Status paket
     status_text = "Carrying Package" if courier.has_package else "No Package"
     text = font.render(status_text, True, BLACK)
-    screen.blit(text, (10, HEIGHT - 30))
+    screen.blit(text, (10, 10))
     
     # Info peta saat ini
-
+    if 'current_map_name' in globals():
+        map_text = f"Map: {current_map_name}"
+    else:
+        map_text = "Map: Default"
+        
+    text = font.render(map_text, True, BLACK)
+    screen.blit(text, (10, 40))
 
 # Inisialisasi peta
 grid, road_types, road_orientations = generate_map()
 source_x, source_y = random_position()
 dest_x, dest_y = random_position()
 while (dest_x, dest_y) == (source_x, source_y):
-    dest_x, dest_y = random_position() 
+    dest_x, dest_y = random_position()
 courier_x, courier_y = random_position()
 courier = Courier(courier_x, courier_y)
 
@@ -550,8 +628,8 @@ generate_button = pygame.Rect(WIDTH - button_width - button_margin, 160, button_
 load_button = pygame.Rect(WIDTH - button_width - button_margin, 210, button_width, button_height)
 
 # Scan file peta yang tersedia
-#map_files = scan_map_files()
-#current_map_index = 0 if map_files else -1
+map_files = scan_map_files()
+current_map_index = 0 if map_files else -1
 
 # Loop utama
 clock = pygame.time.Clock()
@@ -572,7 +650,7 @@ while running:
                 else:
                     courier.path = a_star((courier.x, courier.y), (dest_x, dest_y))
                     if not courier.path:
-                        logging.warning("Tidak dapat menemukan jalur ke tujuan!")
+                        print("Tidak dapat menemukan jalur ke tujuan!")
                     else:
                         courier.moving = True
             elif stop_button.collidepoint(event.pos):
@@ -594,32 +672,37 @@ while running:
                 courier_x, courier_y = random_position()
                 courier = Courier(courier_x, courier_y)
             elif load_button.collidepoint(event.pos):
-                
-                    # Load peta berikutnya secara bergantian
-         
-                map_path = filedialog.askopenfile(
-                    title="pilih file peta",
-                    filetypes=[("Images Files", "*.png;*.jpg;*.bmp")]
+                # Buka dialog untuk memilih file
+                map_path = filedialog.askopenfilename(
+                    title="Pilih File Peta",
+                    filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.bmp")]
                 )
-                new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
+                
+                if map_path:  # Jika user memilih file (tidak membatalkan dialog)
+                    # Dapatkan hanya nama file (tanpa path folder)
+                    map_filename = os.path.basename(map_path)
+                    new_grid, new_road_types, new_road_orientations = load_map_from_image(map_path)
                     
-                if new_grid and new_road_types and new_road_orientations:
-                    # Update variabel global
-                    grid = new_grid
-                    road_types = new_road_types
-                    road_orientations = new_road_orientations
+                    if new_grid and new_road_types and new_road_orientations:
+                        # Update variabel global
+                        grid = new_grid
+                        road_types = new_road_types
+                        road_orientations = new_road_orientations
                         
                         # Reset posisi kurir, sumber, dan tujuan
-                    source_x, source_y = random_position()
-                    dest_x, dest_y = random_position()
-                    while (dest_x, dest_y) == (source_x, source_y):
+                        source_x, source_y = random_position()
                         dest_x, dest_y = random_position()
-                    courier_x, courier_y = random_position()
-                    courier = Courier(courier_x, courier_y)
-                else:
-                    print("Gagal memuat peta, menggunakan peta default")
-                    grid, road_types, road_orientations = generate_map()
-                
+                        while (dest_x, dest_y) == (source_x, source_y):
+                            dest_x, dest_y = random_position()
+                        courier_x, courier_y = random_position()
+                        courier = Courier(courier_x, courier_y)
+                        
+                        # Update nama file yang sedang aktif
+                        current_map_name = map_filename
+                    else:
+                        print("Gagal memuat peta, menggunakan peta default")
+                        grid, road_types, road_orientations = generate_map()
+                        current_map_name = "Generated Map"
     # Update posisi kurir
     if courier.moving:
         courier.follow_path()
@@ -627,7 +710,7 @@ while running:
         if not courier.path:
             if not courier.has_package and courier.x == source_x and courier.y == source_y:
                 if courier.try_pickup(source_x, source_y):
-                    logging.info("Package picked up!")
+                    print("Package picked up!")
                     # Setelah mengambil paket, tentukan rute ke tujuan
                     courier.path = a_star((courier.x, courier.y), (dest_x, dest_y))
                     if not courier.path:
@@ -635,12 +718,12 @@ while running:
                         courier.moving = False
             elif courier.has_package and courier.x == dest_x and courier.y == dest_y:
                 if courier.try_deliver(dest_x, dest_y):
-                    logging.info("Package delivered!")
+                    print("Package delivered!")
                     courier.moving = False
 
     draw_map()
     pygame.display.flip()
-    clock.tick(5)
+    clock.tick(7)
 
 pygame.quit()
 sys.exit()
